@@ -19,12 +19,14 @@ z  = (0:nz-1)' * dz - Lz/2;
 % Linear operator
 % - wavenumbers
 alpha0 = 2*pi / Lx;
-ialpha = ifftshift(-floor(nx/2):ceil(nx/2-1))';
+ialpha = (0:ceil(nx/2-1))';
 alpha  = alpha0 * ialpha;
+nqx    = length(alpha);
 
 beta0 = 2*pi / Lz;
-ibeta = ifftshift(-floor(nz/2):ceil(nz/2-1))';
+ibeta = [0:ceil(nz/2-1),-ceil(nz/2-1):-1]';
 beta  = beta0 * ibeta;
+nqz   = length(beta);
 
 [beta,alpha] = meshgrid(beta,alpha);
 
@@ -44,23 +46,24 @@ lambda  = 0.8 * ( F((xx-Ls)/lrise) - F((xx-Lx)/lfall + 1) );
 
 % Linear operator (state-space system)
 % - reorder modes in a vector
-nq = nx*nz;
+nq = nqx*nqz;
 l = reshape(L,nq,1);
 A = spdiags(l,0,nq,nq);
 
 % - fringe
 lambdaf = fft(lambda(:,1))/nx;
+ialphal = [0:ceil(nx/2-1),-ceil(nx/2):-1]';
 LAMBDA  = sparse(zeros(nq,nq));
 
-LAMBDAmod = zeros(nx);
+LAMBDAmod = zeros(nqx);
 for i = ialpha'
-    for m = ialpha'
-        LAMBDAmod((ialpha' == i),(ialpha' == i-m)) = lambdaf(ialpha == m);
+    for m = ialphal'
+        LAMBDAmod((ialpha == i),(ialpha == i-m)) = lambdaf(ialphal == m);
     end
 end
 
-for j = 1:nz
-    ii = (1:nx) + (j-1)*nx;
+for j = 1:nqz
+    ii = (1:nqx) + (j-1)*nqx;
     LAMBDA(ii,ii) = LAMBDAmod;
 end
 

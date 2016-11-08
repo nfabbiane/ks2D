@@ -1,21 +1,28 @@
-function [C,Cphys] = ks_init_output(pos,sigma,xx,zz)
+function [C,Cfou,Cphy] = ks_init_output(pos,sigma,xx,zz)
 %
-%   [C,Cphys] = KS_init_input(pos,sigma,xx,zz)
+%   [C,Cfou,Cphy] = KS_init_input(pos,sigma,xx,zz)
 %
 
 nout = size(pos,1);
 [nx,nz] = size(xx);
-nq  = nx*nz;
+
+nqx = ceil(nx/2);
+nqz = ceil(nz/2-1)*2+1;
+nq  = nqx*nqz;
 
 % - compute input matrix in physical space
-Cphys = zeros(nx,nz,nout);
-for i = 1:nout
-    Cphys(:,:,i)  = conj(fft2(exp(- ((xx-pos(i,1)).^2)/sigma(i,1).^2 ...
-                                  - ((zz-pos(i,2)).^2)/sigma(i,2).^2 )/sqrt(prod(sigma(i,:)))));
+Cphy = zeros(nx,nz,nout);
+Cfou = zeros(nx,nz,nout);
+for l = 1:nout
+    Cphy(:,:,l) = exp(- ((xx-pos(l,1)).^2)/sigma(l,1).^2 ...
+                      - ((zz-pos(l,2)).^2)/sigma(l,2).^2 )/sqrt(prod(sigma(l,:)));
+                    
+    Cfou(:,:,l) = conj(fft2(Cphy(:,:,l)));
 end
 
 % - reorder for state space formulation
 C = zeros(nout,nq);
-for i = 1:nout
-    C(i,:) = reshape(Cphys(:,:,i),nq,1);
+
+for l = 1:nout
+    C(l,:) = v2q(Cphy(:,:,l)) * (nx*nz);
 end
