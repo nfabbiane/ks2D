@@ -14,8 +14,8 @@ R = P^2/(4*omegarmax);
 S  = omegarmax*R/betamax^4;
 
 % space discretisation
-nqx =  72;          % number of modes in x
-nqz =  12;          % number of modes in z
+NX =  72;          % number of modes in x
+NZ =  12;          % number of modes in z
 Lx  = 500;          % domain length (x)
 Lz  = 200;          % domain width (z)
 Lf  = 150;          % fringe length (x)
@@ -30,7 +30,7 @@ tscr = tend/20;     % time interval for screen output
 
 
 %% Initialization
-[A,xx,zz] = ks_init(P,R,S,V,Lx,Lz,Lf,nqx,nqz);
+[A,xx,zz] = ks_init(P,R,S,V,Lx,Lz,Lf,NX,NZ);
 
 % time-stepper
 fprintf('\nCompute time-stepper.\n')
@@ -45,7 +45,7 @@ Adt = sparse((eye(size(A)) - A * dt/2)\(eye(size(A)) + A * dt/2));
 %% Inputs matrix B
 
 % disturbance d (Gaussian shape at x_d, z_d with sigma_d variance)
-nd = 4; 
+nd = 1; 
 posd = zeros(nd,2); posd(:,1) = 0;
                     posd(:,2) = -Lz/2 + Lz/(2*nd):Lz/(nd):Lz/2 - Lz/(2*nd);
 sigd = zeros(nd,2); sigd(:,1) = 4;
@@ -97,7 +97,7 @@ t = 0:dt:tend; nt = length(t);
 nq = size(A,1);
 
 q = zeros(nq,1);
-v = zeros(nqx,nqz,nt);
+v = zeros(NX,NZ,nt);
 f = zeros(nq,1);
 
 % init signals
@@ -108,13 +108,13 @@ z = zeros(nz,nt);
 
 % init disturbaces
 % - impulse
-% d(:,1) = 1/dt;
+d(:,1) = 1/dt;
 % - noise
-d(:,:) = randn(nd,nt); % unitary variance Gaussian white noise
-for j = 1:nd
-    d(j,:) = d(j,:) - mean(d(j,:),2);   % enforce zero-mean
-    d(j,:) = d(j,:) / std(d(j,:),[],2); % enforce unitary variance
-end
+% d(:,:) = randn(nd,nt); % unitary variance Gaussian white noise
+% for j = 1:nd
+%     d(j,:) = d(j,:) - mean(d(j,:),2);   % enforce zero-mean
+%     d(j,:) = d(j,:) / std(d(j,:),[],2); % enforce unitary variance
+% end
 
 % time loop
 fprintf('\nKS time-integration.\n')
@@ -127,7 +127,7 @@ for i = 1:nt-1
     
     % KS time-step
     q(:) = Adt * (q + f);
-    v(:,:,i) = q2v(q,nqx,nqz);
+    v(:,:,i) = q2v(q,NX,NZ);
     
     
     % output(s)
