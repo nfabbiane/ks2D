@@ -1,4 +1,4 @@
-function [C,Cfou,Cphy] = ks_init_output(pos,sigma,xx,zz)
+function [C,Cfou,Cphy] = ks_init_output(pos,sigma,xx,zz,LX,LZ)
 %
 %   [C,Cfou,Cphy] = KS_init_input(pos,sigma,xx,zz)
 %
@@ -15,12 +15,12 @@ for l = 1:nout
     Cphy(:,:,l)  = exp(- ((xx-pos(l,1)).^2)/sigma(l,1).^2 ...
                        - ((zz-pos(l,2)).^2)/sigma(l,2).^2 )/sqrt(prod(sigma(l,:)));
                    
-    Cfou(:,:,l)  = conj(fft2(Cphy(:,:,l)));
+    Cfou(:,:,l)  = conj(fft2(Cphy(:,:,l))) / nq;
 end
 
 % - reorder for state space formulation
 C = zeros(nout,nq);
 
 for l = 1:nout
-    C(l,:) = v2q(Cphy(:,:,l)) * (nx*nz);
+    C(l,:) = conj(v2q(Cphy(:,:,l))) * LX*LZ;
 end

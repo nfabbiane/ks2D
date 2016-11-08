@@ -14,11 +14,11 @@ R = P^2/(4*omegarmax);
 S  = omegarmax*R/betamax^4;
 
 % space discretisation
-NX =  72;          % number of modes in x
-NZ =  12;          % number of modes in z
-Lx  = 500;          % domain length (x)
-Lz  = 200;          % domain width (z)
-Lf  = 150;          % fringe length (x)
+NX =  72;           % number of modes in x
+NZ =  12;           % number of modes in z
+LX = 500;           % domain length (x)
+LZ = 200;           % domain width (z)
+Lf = 150;           % fringe length (x)
 
 % time integration
 tend = 2500;        % final time
@@ -30,7 +30,7 @@ tscr = tend/20;     % time interval for screen output
 
 
 %% Initialization
-[A,xx,zz] = ks_init(P,R,S,V,Lx,Lz,Lf,NX,NZ);
+[A,xx,zz] = ks_init(P,R,S,V,LX,LZ,Lf,NX,NZ);
 
 % time-stepper
 fprintf('\nCompute time-stepper.\n')
@@ -47,7 +47,7 @@ Adt = sparse((eye(size(A)) - A * dt/2)\(eye(size(A)) + A * dt/2));
 % disturbance d (Gaussian shape at x_d, z_d with sigma_d variance)
 nd = 1; 
 posd = zeros(nd,2); posd(:,1) = 0;
-                    posd(:,2) = -Lz/2 + Lz/(2*nd):Lz/(nd):Lz/2 - Lz/(2*nd);
+                    posd(:,2) = -LZ/2 + LZ/(2*nd):LZ/(nd):LZ/2 - LZ/(2*nd);
 sigd = zeros(nd,2); sigd(:,1) = 4;
                     sigd(:,2) = 4;
 
@@ -57,7 +57,7 @@ Bd = ks_init_input(posd,sigd,xx,zz);
 % actuator u (Gaussian shape at x_u, z_u with sigma_u variance)
 nu = 4; 
 posu = zeros(nu,2); posu(:,1) = 200;
-                    posu(:,2) = -Lz/2 + Lz/(2*nu):Lz/(nu):Lz/2 - Lz/(2*nu);
+                    posu(:,2) = -LZ/2 + LZ/(2*nu):LZ/(nu):LZ/2 - LZ/(2*nu);
 sigu = zeros(nu,2); sigu(:,1) = 4;
                     sigu(:,2) = 4;
 
@@ -71,21 +71,21 @@ Bu = ks_init_input(posu,sigu,xx,zz);
 % measurement y (Gaussian shape at x_y, z_y with sigma_y variance)
 ny = nu; 
 posy = zeros(ny,2); posy(:,1) = 100;
-                    posy(:,2) = -Lz/2 + Lz/(2*ny):Lz/(ny):Lz/2 - Lz/(2*ny);
+                    posy(:,2) = -LZ/2 + LZ/(2*ny):LZ/(ny):LZ/2 - LZ/(2*ny);
 sigy = zeros(ny,2); sigy(:,1) = 4;
                     sigy(:,2) = 4;
 
-Cy = ks_init_output(posy,sigy,xx,zz);
+Cy = ks_init_output(posy,sigy,xx,zz,LX,LZ);
 
 
 % output z (Gaussian shape at x_z with sigma_z variance)
 nz = nu; 
 posz = zeros(nz,2); posz(:,1) = 300;
-                    posz(:,2) = -Lz/2 + Lz/(2*nz):Lz/(nz):Lz/2 - Lz/(2*nz);
+                    posz(:,2) = -LZ/2 + LZ/(2*nz):LZ/(nz):LZ/2 - LZ/(2*nz);
 sigz = zeros(nz,2); sigz(:,1) = 4;
                     sigz(:,2) = 4;
 
-Cz = ks_init_output(posz,sigz,xx,zz);
+Cz = ks_init_output(posz,sigz,xx,zz,LX,LZ);
 
 
 
@@ -126,7 +126,7 @@ for i = 1:nt-1
     
     
     % KS time-step
-    q(:) = Adt * (q + f);
+    q(:) = Adt * (q + f*dt);
     v(:,:,i) = q2v(q,NX,NZ);
     
     
