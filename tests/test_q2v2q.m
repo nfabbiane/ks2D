@@ -1,5 +1,5 @@
 clc, clear all, close all
-addpath('../')
+addpath('../lib','../')
 
 %% Parameters
 
