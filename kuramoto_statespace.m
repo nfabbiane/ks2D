@@ -12,7 +12,7 @@ V  = 1.0;           % phase speed (= group speed, KS is not dispersive)
 
 P = 2 * alphamax^2;
 R = P^2/(4*omegarmax);
-S  = omegarmax*R/betamax^4;
+S = omegarmax*R/betamax^4;
 
 % space discretisation
 NX =  72;           % number of modes in x
