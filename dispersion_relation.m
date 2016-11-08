@@ -46,5 +46,5 @@ subplot(2,1,1); contourf(alpha(:,1),beta(1,:),real(omega).',lvlr,'LineColor','no
                 xlabel('\alpha'); ylabel('\beta'); title('\omega_r')
 
 subplot(2,1,2); contourf(alpha(:,1),beta(1,:),imag(omega).',lvli,'LineColor','none'); 
-                axis image; colorbar('EO');
+                axis image; colorbar('EO'); colormap(gca,redblue);
                 xlabel('\alpha'); ylabel('\beta'); title('\omega_i')
