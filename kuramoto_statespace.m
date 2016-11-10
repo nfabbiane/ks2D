@@ -8,7 +8,7 @@ omegarmax = 2.5e-3; % maximum growth rate
 alphamax = 1.5e-1;  % alpha of maximum growth rate
 betamax = 1.5e-1;   % maximum unstable beta
 
-V  = 1.0;           % phase speed (= group speed, KS is not dispersive)
+V = 1.0;            % phase speed (= group speed, KS is not dispersive)
 
 P = 2 * alphamax^2;
 R = P^2/(4*omegarmax);
@@ -56,7 +56,7 @@ Bd = ks_init_input(posd,sigd,xx,zz);
 
       
 % actuator u (Gaussian shape at x_u, z_u with sigma_u variance)
-nu = 4; 
+nu = 3; 
 posu = zeros(nu,2); posu(:,1) = 200;
                     posu(:,2) = -LZ/2 + LZ/(2*nu):LZ/(nu):LZ/2 - LZ/(2*nu);
 sigu = zeros(nu,2); sigu(:,1) = 4;
