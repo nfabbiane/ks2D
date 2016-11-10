@@ -22,13 +22,13 @@ LZ = 200;           % domain width (z)
 Lf = 150;           % fringe length (x)
 
 % time integration
-tend = 500;         % final time
-dt   = .25;         % time-step
+tend = 750;         % final time
+dt   = 1.0;         % time-step
 
 % control parameters
-rho     = 0;1e-2;
+rho     = 1e0;
 maxiter = 1e1;
-step    = 1e4;
+step    = 1e0;
 
 
 
@@ -42,7 +42,7 @@ step    = 1e4;
 %% Inputs matrix B
 
 % disturbance d (Gaussian shape at x_d, z_d with sigma_d variance)
-nd = 1; 
+nd = 3; 
 posd = zeros(nd,2); posd(:,1) = 0;
                     posd(:,2) = -LZ/2 + LZ/(2*nd):LZ/(nd):LZ/2 - LZ/(2*nd);
 sigd = zeros(nd,2); sigd(:,1) = 4;
@@ -52,7 +52,7 @@ Bd = ks_init_input(posd,sigd,xx,zz);
 
       
 % actuator u (Gaussian shape at x_u, z_u with sigma_u variance)
-nu = 4; 
+nu = 3; 
 posu = zeros(nu,2); posu(:,1) = 200;
                     posu(:,2) = -LZ/2 + LZ/(2*nu):LZ/(nu):LZ/2 - LZ/(2*nu);
 sigu = zeros(nu,2); sigu(:,1) = 4;
@@ -91,15 +91,15 @@ Cz = ks_init_output(posz,sigz,xx,zz,LX,LZ);
 
 
 %% Riccati-based optimisation
-% fprintf('\nKS Riccati-based optimisation. ')
-% 
-% % - solve Riccati eq.
-% X = care(A,Bu,Cz'*Cz,Wu);
-% 
-% % - compute control gains
-% KRic = -Wu\Bu'*X;
-% 
-% fprintf(' END.\n')
+fprintf('\nKS Riccati-based optimisation. ')
+
+% - solve Riccati eq.
+X = care(A,Bu,Cz'*Cz,W);
+
+% - compute control gains
+KRic = -W\Bu'*X;
+
+fprintf(' END.\n')
 
 
 
@@ -117,53 +117,59 @@ dJdK = zeros(nu,nq,maxiter);
 fprintf('\nKS adjoint-based optimisation.\n')
 
 for iter = 1:maxiter
-    
-    % init state space variables
-    q = zeros(nq,nt);
-    l = zeros(nq,nt);
-    f = zeros(nq,1);
 
     % controlled system
     Actr = sparse(A + Bu*KAdj(:,:,iter));
     Q = Cz'*Cz + KAdj(:,:,iter)'*W*KAdj(:,:,iter);
     
-
     % direct time-stepper
-    Adt = sparse( (eye(size(Actr)) - Actr * dt/2) \ ...
-                  (eye(size(Actr)) + Actr * dt/2) );
-    % direct loop
-    q(:,1) = Bd;
-    for i = 1:nt-1
-
-        % input(s)
-        f(:) = 0;
-
-        % KS time-step
-        q(:,i+1) = Adt * (q(:,i) + f*dt);
-
-        % compute cost function
-        JAdj(iter) = JAdj(iter) + 1/2 * (q(:,i)'*Q*q(:,i)) * dt;
-
-    end
-    
-
+    Adtdir = sparse( (eye(size(Actr)) - Actr * dt/2) \ ...
+                     (eye(size(Actr)) + Actr * dt/2) );
+              
     % adjoint time-stepper
-    Adt = sparse( (eye(size(Actr)) - Actr' * dt/2) \ ...
-                  (eye(size(Actr)) + Actr' * dt/2) );
-    % adjoint loop
-    l(:,end) = q(:,end);
-    for i = nt:-1:2
+    Adtadj = sparse( (eye(size(Actr)) - Actr' * dt/2) \ ...
+                     (eye(size(Actr)) + Actr' * dt/2) );
+              
+    
+    % loop on disturbances
+    for m = 1:nd
+        
+        % init state space variables
+        q = zeros(nq,nt);
+        l = zeros(nq,nt);
+        f = zeros(nq,1);
 
-        % input(s)
-        f(:) = -Q*q(:,i);
+        % direct loop
+        q(:,1) = Bd(:,m);
+        for i = 1:nt-1
 
-        % KS time-step
-        l(:,i-1) = Adt * (l(:,i) + f*dt);
+            % forcing
+            f(:) = 0;
 
-        % compute gradient
-        dJdK(:,:,iter) = dJdK(:,:,iter) + ...
-                         (W*KAdj(:,:,iter)*q(:,i) - Bu'*l(:,i)) * q(:,i)' * dt;
+            % KS time-step
+            q(:,i+1) = Adtdir * (q(:,i) + f*dt);
 
+            % compute cost function
+            JAdj(iter) = JAdj(iter) + 1/2 * (q(:,i)'*Q*q(:,i)) * dt;
+
+        end
+
+        % adjoint loop
+        l(:,end) = q(:,end);
+        for i = nt:-1:2
+
+            % forcing
+            f(:) = -Q*q(:,i);
+
+            % KS time-step
+            l(:,i-1) = Adtadj * (l(:,i) + f*dt);
+
+            % compute gradient
+            dJdK(:,:,iter) = dJdK(:,:,iter) + ...
+                     (W*KAdj(:,:,iter)*q(:,i) - Bu'*l(:,i)) * q(:,i)' * dt;
+
+        end
+    
     end
     
     
@@ -194,3 +200,21 @@ for iter = 1:maxiter
 end
 
 fprintf(' END.\n')
+
+
+
+
+%% Compare
+figure(1); clf
+for m = 1:nu
+    subplot(nu,2,1+2*(m-1)); surf(xx,zz,q2v(KRic(m,:).',NX,NZ),'EdgeColor','none');
+                    colorbar('EO'); colormap(redblue)
+                    cax = caxis; caxis([-1 1]*max(abs(cax)));
+                    axis image; view(2);
+                    xlabel('x'), ylabel('z'); title(sprintf('K_%d Riccati',m))
+    subplot(nu,2,2+2*(m-1)); surf(xx,zz,q2v(KAdj(m,:,end).',NX,NZ),'EdgeColor','none');
+                    colorbar('EO'); colormap(redblue)
+                    cax = caxis; caxis([-1 1]*max(abs(cax)));
+                    axis image; view(2);
+                    xlabel('x'), ylabel('z'); title(sprintf('K_%d Adjoint',m))
+end
