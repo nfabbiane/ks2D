@@ -22,13 +22,13 @@ LZ = 200;           % domain width (z)
 Lf = 150;           % fringe length (x)
 
 % time integration
-tend = 1000;        % final time
+tend = 500;         % final time
 dt   = 1.0;         % time-step
 
 % control parameters
-rho     = 1e4;      % control penalty
+rho     = 1e5;      % control penalty
 maxiter = 20;       % max number of iterations
-epsilon = 1e-4;     % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps
+epsilon = 1e-5;     % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps
 
 
 
@@ -232,8 +232,7 @@ for iter = 1:maxiter
                 up(r) = real(sum(sum(p(:,:,r) .* q(:,:,i,m)))) * (LX*LZ);
             end
             for r = 1:nu
-                Q(:,:,r) = Q(:,:,r) + ...
-                    (W(r,:)*up - w(r,i,m)) .* conj(q(:,:,i,m)) * dt;
+                Q(:,:,r) = Q(:,:,r) + W(r,:)*up .* conj(q(:,:,i,m)) * dt;
             end
         end
     end
