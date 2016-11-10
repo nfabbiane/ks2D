@@ -22,13 +22,13 @@ LZ = 200;           % domain width (z)
 Lf = 150;           % fringe length (x)
 
 % time integration
-tend = 750;         % final time
-dt   = .25;         % time-step
+tend = 1000;        % final time
+dt   = 1.0;         % time-step
 
 % control parameters
-rho     = 1e2;
-maxiter = 20;
-epsilon = 1e-2;
+rho     = 1e4;      % control penalty
+maxiter = 20;       % max number of iterations
+epsilon = 1e-4;     % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps
 
 
 
@@ -42,7 +42,7 @@ epsilon = 1e-2;
 %% Inputs matrix B
 
 % disturbance d (Gaussian shape at x_d, z_d with sigma_d variance)
-nd = 3; 
+nd = 12; 
 posd = zeros(nd,2); posd(:,1) = 0;
                     posd(:,2) = -LZ/2 + LZ/(2*nd):LZ/(nd):LZ/2 - LZ/(2*nd);
 sigd = zeros(nd,2); sigd(:,1) = 4;
@@ -108,14 +108,22 @@ fprintf(' END.\n')
 t = 0:dt:tend; nt = length(t);
 nq = size(A,1);
 
-% init optimisation variables
-KAdj = zeros(NX,NZ,nu,maxiter);
-JAdj = zeros(1,maxiter);
-dJdK = zeros(NX,NZ,nu,maxiter);
+% initialize control gains
+K = zeros(NX,NZ,nu,maxiter);
 
+% initialize gradient
+dJdK  = zeros(NX,NZ,nu,maxiter);
 dJdKn = zeros(1,maxiter);
-step  = zeros(1,maxiter);
-dJ    = zeros(1,maxiter);
+
+% initialize cost function
+J  = zeros(1,maxiter);
+dJ = zeros(1,maxiter);
+
+% initialize conjuagate gradient coefficients
+p     = zeros(NX,NZ,nu);
+Q     = zeros(NX,NZ,nu);
+alpha = zeros(1,maxiter);
+beta  = zeros(1,maxiter);
 
 % optimisation loop
 fprintf('\nKS adjoint-based optimal control.\n')
@@ -124,101 +132,124 @@ for iter = 1:maxiter
     
     fprintf('\niter %2.0d: ',iter); tic
     
+    % compute gradient and cost function
+    q = zeros(NX,NZ,nt,nd);
+    z = zeros(nz,nt,nd);
+    u = zeros(nu,nt,nd);
+
+    l = zeros(NX,NZ,nt,nd);
+    w = zeros(nu,nt,nd);
+
+    f = zeros(NX,NZ,1);
+    
     % loop on disturbances
     for m = 1:nd
 
         % direct loop
-        q = zeros(NX,NZ,nt); q(:,:,1) = Bdfou(:,:,m);
-        f = zeros(NX,NZ,1);
-        z = zeros(nz,nt);
-        u = zeros(nu,nt);
+        q(:,:,1,m) = Bdfou(:,:,m);
         
         for i = 1:nt-1
             
             % output(s)
             for r = 1:nz
-                z(r,i) = real(sum(sum(Czfou(:,:,r) .* q(:,:,i)))) * (LX*LZ);
+                z(r,i,m) = real(sum(sum(Czfou(:,:,r) .* q(:,:,i,m)))) * (LX*LZ);
             end
             
             % update cost function
-            JAdj(iter) = JAdj(iter) + 1/2 * (z(:,i)' * z(:,i)) * dt;
+            J(iter) = J(iter) + 1/2 * (z(:,i,m)' * z(:,i,m)) * dt;
             
             % control signal
             for r = 1:nu
-                u(r,i) = real(sum(sum(KAdj(:,:,r,iter) .* q(:,:,i)))) * (LX*LZ);
+                u(r,i,m) = real(sum(sum(K(:,:,r,iter) .* q(:,:,i,m)))) * (LX*LZ);
             end
             
             % forcing
             f(:,:) = 0;
             for r = 1:nu
-                f(:,:) = f(:,:) + Bufou(:,:,r) * u(r,i);
+                f(:,:) = f(:,:) + Bufou(:,:,r) * u(r,i,m);
             end
 
             % KS time-step
-            q(:,:,i+1) = ks_timestep(q(:,:,i),f,dt,L,lambda);
+            q(:,:,i+1,m) = ks_timestep(q(:,:,i,m),f,dt,L,lambda);
             
         end
 
-        
         % adjoint loop
-        l = zeros(NX,NZ,nt); l(:,:,end) = q(:,:,end);
-        f = zeros(NX,NZ,1);
-        w = zeros(nu,nt);
+        l(:,:,end,m) = q(:,:,end,m);
         
         for i = nt:-1:2
             
             % control signal
             for r = 1:nu
-                w(r,i) = real(sum(sum(conj(Bufou(:,:,r)) .* l(:,:,i)))) * (LX*LZ);
+                w(r,i,m) = real(sum(sum(conj(Bufou(:,:,r)) .* l(:,:,i,m)))) * (LX*LZ);
             end
          
             % update gradient
             for r = 1:nu
                 dJdK(:,:,r,iter) = dJdK(:,:,r,iter) + ...
-                           (W(r,:)*u(:,i) - w(r,i)) .* conj(q(:,:,i)) * dt;
+                           (W(r,:)*u(:,i,m) - w(r,i,m)) .* conj(q(:,:,i,m)) * dt;
             end
 
             % forcing
             f(:,:) = 0;
             for r = 1:nz
-                f(:,:) = f(:,:) - conj(Czfou(:,:,r)) * z(r,i);
+                f(:,:) = f(:,:) - conj(Czfou(:,:,r)) * z(r,i,m);
             end
             for r = 1:nu
-                f(:,:) = f(:,:) - conj(KAdj(:,:,r,iter)) * (W(r,:) * u(:,i));
-            end
-            for r = 1:nu
-                f(:,:) = f(:,:) + conj(KAdj(:,:,r,iter)) * w(r,i);
+                f(:,:) = f(:,:) - conj(K(:,:,r,iter)) * (W(r,:) * u(:,i,m)) ...
+                                + conj(K(:,:,r,iter)) *  w(r,i,m);
             end
 
             % KS time-step
-            l(:,:,i-1) = ks_timestep(l(:,:,i),f,dt,conj(L),lambda);
+            l(:,:,i-1,m) = ks_timestep(l(:,:,i,m),f,dt,conj(L),lambda);
 
         end
     
     end
     
     
-    % compute step-size
-    dJdKn(iter) = sum(sum(sum(dJdK(:,:,:,iter).*conj(dJdK(:,:,:,iter)))));
-    if iter == 1
-        step(iter) = 1;
-        dJ(iter) = 0;
-    else
-        step(iter) = dJdKn(iter) / dJdKn(iter-1); % Fletcher?Reeves
-        dJ(iter) = abs(JAdj(iter)-JAdj(iter-1))/abs(JAdj(iter-1));
+    % cost function variation
+    if iter > 1
+        dJ(iter) = abs(J(iter)-J(iter-1))/abs(J(iter-1));
     end
     
-    % update control gains
-    KAdj(:,:,:,iter+1) = KAdj(:,:,:,iter) - dJdK(:,:,:,iter) * step(iter)/(LX*LZ);
+    
+    % conjugate gradient
+    
+    % - direction
+    dJdKn(iter) = sum(sum(sum(dJdK(:,:,:,iter).*conj(dJdK(:,:,:,iter)))));
+    if iter > 1
+        beta(iter) = dJdKn(iter) / dJdKn(iter-1); % Fletcher?Reeves
+    end
+    p(:,:,:) = - dJdK(:,:,:,iter) + beta(iter) * p;
+    
+    % - step length (solution of the approximated quadratic problem)
+    Q(:,:,:) = 0; up = zeros(nu,1);
+    for m = 1:nd
+        for i = 1:nt-1
+            for r = 1:nu
+                up(r) = real(sum(sum(p(:,:,r) .* q(:,:,i,m)))) * (LX*LZ);
+            end
+            for r = 1:nu
+                Q(:,:,r) = Q(:,:,r) + ...
+                    (W(r,:)*up - w(r,i,m)) .* conj(q(:,:,i,m)) * dt;
+            end
+        end
+    end
+    alpha(iter) = - dJdKn(iter) / ...
+                          real(sum(sum(sum(conj(Q) .* dJdK(:,:,:,iter)))));
+    
+    % - update
+    K(:,:,:,iter+1) = K(:,:,:,iter) + alpha(iter) * p;
     
     
     % visualize status
     runtime = toc;
     fprintf('J = %8.2e, |dJdK|_2 = %8.2e (runtime %.2fs)',...
-                 JAdj(iter),       dJdKn(iter),    runtime)
+                 J(iter),       dJdKn(iter),    runtime)
 
     figure(100); clf; iu = floor(nu/2)+1;
-    subplot(6,1,1:2); surf(xx,zz,ifft2(KAdj(:,:,iu,iter))*(NX*NZ),'EdgeColor','none');
+    subplot(6,1,1:2); surf(xx,zz,ifft2(K(:,:,iu,iter))*(NX*NZ),'EdgeColor','none');
                     hc = colorbar('EO'); colormap(redblue)
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
                     axis image; view(2); shading interp
@@ -237,10 +268,8 @@ for iter = 1:maxiter
 	drawnow
     
     
-    % exit condition
-    if iter > 1
-        if dJ(iter) < epsilon; break; end
-    end
+    % stop condition
+    if (iter > 1) & (dJ(iter) < epsilon); break; end
     
 end
 
@@ -255,11 +284,11 @@ for m = 1:nu
     subplot(nu,2,1+2*(m-1)); surf(xx,zz,q2v(KRic(m,:).',NX,NZ)/(LX*LZ),'EdgeColor','none');
                     colorbar('EO'); colormap(redblue)
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
-                    axis image; view(2);
+                    axis image; view(2); shading interp
                     xlabel('x'), ylabel('z'); title(sprintf('K_%d Riccati-based',m))
-    subplot(nu,2,2+2*(m-1)); surf(xx,zz,ifft2(KAdj(:,:,m,end)*(NX*NZ)),'EdgeColor','none');
+    subplot(nu,2,2+2*(m-1)); surf(xx,zz,ifft2(K(:,:,m,iter)*(NX*NZ)),'EdgeColor','none');
                     colorbar('EO'); colormap(redblue)
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
-                    axis image; view(2);
+                    axis image; view(2); shading interp
                     xlabel('x'), ylabel('z'); title(sprintf('K_%d adjoint-based',m))
 end
