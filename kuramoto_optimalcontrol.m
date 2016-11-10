@@ -259,12 +259,12 @@ for iter = 1:maxiter
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
                     axis image; view(2); shading interp
                     xlabel('x'), ylabel('z'); ylabel(hc,sprintf('dJ/dK_%d',iu))
-    subplot(6,1,5); semilogy(1:maxiter,dJ,'s-');
+    subplot(6,1,5); semilogy(1:maxiter,dJ,'s-',[1 maxiter],[1 1]*epsilon,'-r');
                     ax = axis; axis([1 maxiter ax(3:4)]); grid on
                     xlabel('iter'), ylabel('\deltaJ');
     subplot(6,1,6); semilogy(1:maxiter,dJdKn,'s-');
                     ax = axis; axis([1 maxiter ax(3:4)]); grid on
-                    xlabel('iter'), ylabel('||dJ/dK||_2');
+                    xlabel('iter'), ylabel('||\partialJ/\partialK||_2');
 	drawnow
     
     
