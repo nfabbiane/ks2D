@@ -122,6 +122,7 @@ dJ = zeros(1,maxiter);
 % initialize conjuagate gradient coefficients
 p     = zeros(NX,NZ,nu);
 Q     = zeros(NX,NZ,nu);
+up    = zeros(nu,1);
 alpha = zeros(1,maxiter);
 beta  = zeros(1,maxiter);
 
@@ -224,7 +225,7 @@ for iter = 1:maxiter
     p(:,:,:) = - dJdK(:,:,:,iter) + beta(iter) * p;
     
     % - step length (solution of the approximated quadratic problem)
-    Q(:,:,:) = 0; up = zeros(nu,1);
+    Q(:,:,:) = 0;
     for m = 1:nd
         for i = 1:nt-1
             for r = 1:nu
