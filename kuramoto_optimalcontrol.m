@@ -26,9 +26,9 @@ tend = 750;         % final time
 dt   = .25;         % time-step
 
 % control parameters
-rho     = 1e0;
-maxiter = 1e1;
-step    = 1e-5;
+rho     = 1e2;
+maxiter = 20;
+epsilon = 1e-2;
 
 
 
@@ -113,6 +113,10 @@ KAdj = zeros(NX,NZ,nu,maxiter);
 JAdj = zeros(1,maxiter);
 dJdK = zeros(NX,NZ,nu,maxiter);
 
+dJdKn = zeros(1,maxiter);
+step  = zeros(1,maxiter);
+dJ    = zeros(1,maxiter);
+
 % optimisation loop
 fprintf('\nKS adjoint-based optimal control.\n')
 
@@ -194,30 +198,49 @@ for iter = 1:maxiter
     end
     
     
+    % compute step-size
+    dJdKn(iter) = sum(sum(sum(dJdK(:,:,:,iter).*conj(dJdK(:,:,:,iter)))));
+    if iter == 1
+        step(iter) = 1;
+        dJ(iter) = 0;
+    else
+        step(iter) = dJdKn(iter) / dJdKn(iter-1); % Fletcher?Reeves
+        dJ(iter) = abs(JAdj(iter)-JAdj(iter-1))/abs(JAdj(iter-1));
+    end
+    
     % update control gains
-    KAdj(:,:,:,iter+1) = KAdj(:,:,:,iter) - dJdK(:,:,:,iter) * step;
+    KAdj(:,:,:,iter+1) = KAdj(:,:,:,iter) - dJdK(:,:,:,iter) * step(iter)/(LX*LZ);
     
     
-    % optimisation status
+    % visualize status
     runtime = toc;
     fprintf('J = %8.2e, |dJdK|_2 = %8.2e (runtime %.2fs)',...
-             JAdj(iter),sum(sum(sum(dJdK(:,:,:,iter).*conj(dJdK(:,:,:,iter))))),runtime)
+                 JAdj(iter),       dJdKn(iter),    runtime)
 
-    figure(100); clf;
-    subplot(5,1,1:2); surf(xx,zz,ifft2(KAdj(:,:,1,iter))*(NX*NZ),'EdgeColor','none');
-                    colorbar('EO'); colormap(redblue)
+    figure(100); clf; iu = floor(nu/2)+1;
+    subplot(6,1,1:2); surf(xx,zz,ifft2(KAdj(:,:,iu,iter))*(NX*NZ),'EdgeColor','none');
+                    hc = colorbar('EO'); colormap(redblue)
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
-                    axis image; view(2);
-                    xlabel('x'), ylabel('z'); title('K_1')
-    subplot(5,1,3:4); surf(xx,zz,ifft2(dJdK(:,:,1,iter))*(NX*NZ),'EdgeColor','none');
-                    colorbar('EO'); colormap(redblue)
+                    axis image; view(2); shading interp
+                    xlabel('x'), ylabel('z'); ylabel(hc,sprintf('K_%d',iu))
+    subplot(6,1,3:4); surf(xx,zz,ifft2(dJdK(:,:,iu,iter))*(NX*NZ),'EdgeColor','none');
+                    hc = colorbar('EO'); colormap(redblue)
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
-                    axis image; view(2);
-                    xlabel('x'), ylabel('z'); title('dJ/dK_1')
-    subplot(5,1,5); semilogy(1:maxiter,JAdj,'s-');
+                    axis image; view(2); shading interp
+                    xlabel('x'), ylabel('z'); ylabel(hc,sprintf('dJ/dK_%d',iu))
+    subplot(6,1,5); semilogy(1:maxiter,dJ,'s-');
                     ax = axis; axis([1 maxiter ax(3:4)]); grid on
-                    xlabel('iter'), ylabel('J');
+                    xlabel('iter'), ylabel('\deltaJ');
+    subplot(6,1,6); semilogy(1:maxiter,dJdKn,'s-');
+                    ax = axis; axis([1 maxiter ax(3:4)]); grid on
+                    xlabel('iter'), ylabel('||dJ/dK||_2');
 	drawnow
+    
+    
+    % exit condition
+    if iter > 1
+        if dJ(iter) < epsilon; break; end
+    end
     
 end
 
@@ -234,7 +257,7 @@ for m = 1:nu
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
                     axis image; view(2);
                     xlabel('x'), ylabel('z'); title(sprintf('K_%d Riccati-based',m))
-    subplot(nu,2,2+2*(m-1)); surf(xx,zz,ifft2(KAdj(:,:,m,end))*(NX*NZ),'EdgeColor','none');
+    subplot(nu,2,2+2*(m-1)); surf(xx,zz,ifft2(KAdj(:,:,m,end)*(NX*NZ)),'EdgeColor','none');
                     colorbar('EO'); colormap(redblue)
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
                     axis image; view(2);
