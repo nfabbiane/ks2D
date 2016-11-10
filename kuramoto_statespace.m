@@ -144,7 +144,7 @@ for i = 1:nt-1
         subplot(4,2,1:4); surf(xx,zz,v(:,:,i),'EdgeColor','none');
                         colorbar('NO'); colormap(redblue)
                         cax = caxis; caxis([-1 1]*max(abs(cax)));
-                        axis image; view(2);
+                        axis image; view(2); shading interp
                         xlabel('x'), ylabel('z'); title(sprintf('v(x,z,t = %.1f)',t(i+1)))
         subplot(4,2,5); plot(t(1:i+1),d(:,1:i+1));
                         ax = axis; axis([0 tend ax(3:4)]); grid on
