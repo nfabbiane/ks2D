@@ -26,7 +26,7 @@ tend = 500;         % final time
 dt   = 1.0;         % time-step
 
 % control parameters
-rho     = 1e3;      % control penalty
+rho     = 1e4;      % control penalty
 maxiter = 40;        % max number of iterations
 epsilon = 1e-5;     % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps
 
@@ -43,7 +43,7 @@ epsilon = 1e-5;     % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps
 
 % disturbance d (Gaussian shape at x_d, z_d with sigma_d variance)
 nd = 12; 
-posd = zeros(nd,2); posd(:,1) = 175;
+posd = zeros(nd,2); posd(:,1) = 0;
                     posd(:,2) = -LZ/2 + LZ/(2*nd):LZ/(nd):LZ/2 - LZ/(2*nd);
 sigd = zeros(nd,2); sigd(:,1) = 4;
                     sigd(:,2) = 4;
@@ -110,6 +110,10 @@ nq = size(A,1);
 
 % initialize control gains
 K = zeros(NX,NZ,nu,maxiter);
+% for r = 1:nu
+%     K(:,:,r,1) = fft2(q2v(KRic(r,:).',NX,NZ)/(LX*LZ))/(NX*NZ);
+% end
+
 
 % initialize gradient
 dJdK  = zeros(NX,NZ,nu,maxiter);
@@ -121,7 +125,7 @@ dJ = zeros(1,maxiter);
 
 % initialize conjuagate gradient coefficients
 P     = zeros(NX,NZ,nu);
-dJdP     = zeros(NX,NZ,nu);
+dJdP  = zeros(NX,NZ,nu);
 up    = zeros(nu,1);
 alpha = zeros(1,maxiter);
 beta  = zeros(1,maxiter);
@@ -156,13 +160,14 @@ for iter = 1:maxiter
                 z(r,i,m) = real(sum(sum(Czfou(:,:,r) .* q(:,:,i,m)))) * (LX*LZ);
             end
             
-            % update cost function
-            J(iter) = J(iter) + 1/2 * (z(:,i,m)' * z(:,i,m)) * dt;
-            
             % control signal
             for r = 1:nu
                 u(r,i,m) = real(sum(sum(K(:,:,r,iter) .* q(:,:,i,m)))) * (LX*LZ);
             end
+            
+            % update cost function
+            J(iter) = J(iter) + 1/2 * (z(:,i,m)' * z(:,i,m) ...
+                                          + u(:,i,m)' * W * u(:,i,m)) * dt;
             
             % forcing
             f(:,:) = 0;
@@ -194,11 +199,11 @@ for iter = 1:maxiter
             % forcing
             f(:,:) = 0;
             for r = 1:nz
-                f(:,:) = f(:,:) - conj(Czfou(:,:,r)) * z(r,i,m);
+                f(:,:) = f(:,:) - 2 * conj(Czfou(:,:,r)) * z(r,i,m);
             end
             for r = 1:nu
-                f(:,:) = f(:,:) - conj(K(:,:,r,iter)) * (W(r,:) * u(:,i,m)) ...
-                                + conj(K(:,:,r,iter)) *  h(r,i,m);
+                f(:,:) = f(:,:) - 2 * conj(K(:,:,r,iter)) * (W(r,:) * u(:,i,m)) ...
+                                +     conj(K(:,:,r,iter)) *  h(r,i,m);
             end
 
             % KS time-step
