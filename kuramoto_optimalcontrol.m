@@ -26,8 +26,8 @@ tend = 500;         % final time
 dt   = 1.0;         % time-step
 
 % control parameters
-rho     = 1e5;      % control penalty
-maxiter = 20;       % max number of iterations
+rho     = 1e3;      % control penalty
+maxiter = 40;        % max number of iterations
 epsilon = 1e-5;     % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps
 
 
@@ -43,7 +43,7 @@ epsilon = 1e-5;     % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps
 
 % disturbance d (Gaussian shape at x_d, z_d with sigma_d variance)
 nd = 12; 
-posd = zeros(nd,2); posd(:,1) = 0;
+posd = zeros(nd,2); posd(:,1) = 175;
                     posd(:,2) = -LZ/2 + LZ/(2*nd):LZ/(nd):LZ/2 - LZ/(2*nd);
 sigd = zeros(nd,2); sigd(:,1) = 4;
                     sigd(:,2) = 4;
@@ -120,8 +120,8 @@ J  = zeros(1,maxiter);
 dJ = zeros(1,maxiter);
 
 % initialize conjuagate gradient coefficients
-p     = zeros(NX,NZ,nu);
-Q     = zeros(NX,NZ,nu);
+P     = zeros(NX,NZ,nu);
+dJdP     = zeros(NX,NZ,nu);
 up    = zeros(nu,1);
 alpha = zeros(1,maxiter);
 beta  = zeros(1,maxiter);
@@ -139,7 +139,7 @@ for iter = 1:maxiter
     u = zeros(nu,nt,nd);
 
     l = zeros(NX,NZ,nt,nd);
-    w = zeros(nu,nt,nd);
+    h = zeros(nu,nt,nd);
 
     f = zeros(NX,NZ,1);
     
@@ -182,13 +182,13 @@ for iter = 1:maxiter
             
             % control signal
             for r = 1:nu
-                w(r,i,m) = real(sum(sum(conj(Bufou(:,:,r)) .* l(:,:,i,m)))) * (LX*LZ);
+                h(r,i,m) = real(sum(sum(conj(Bufou(:,:,r)) .* l(:,:,i,m)))) * (LX*LZ);
             end
          
             % update gradient
             for r = 1:nu
                 dJdK(:,:,r,iter) = dJdK(:,:,r,iter) + ...
-                           (W(r,:)*u(:,i,m) - w(r,i,m)) .* conj(q(:,:,i,m)) * dt;
+                           (W(r,:)*u(:,i,m) - 1/2 * h(r,i,m)) .* conj(q(:,:,i,m)) * dt;
             end
 
             % forcing
@@ -198,7 +198,7 @@ for iter = 1:maxiter
             end
             for r = 1:nu
                 f(:,:) = f(:,:) - conj(K(:,:,r,iter)) * (W(r,:) * u(:,i,m)) ...
-                                + conj(K(:,:,r,iter)) *  w(r,i,m);
+                                + conj(K(:,:,r,iter)) *  h(r,i,m);
             end
 
             % KS time-step
@@ -222,25 +222,26 @@ for iter = 1:maxiter
     if iter > 1
         beta(iter) = dJdKn(iter) / dJdKn(iter-1); % Fletcher?Reeves
     end
-    p(:,:,:) = - dJdK(:,:,:,iter) + beta(iter) * p;
+    P(:,:,:) = - dJdK(:,:,:,iter) + beta(iter) * P;
     
     % - step length (solution of the approximated quadratic problem)
-    Q(:,:,:) = 0;
+    dJdP(:,:,:) = 0;
     for m = 1:nd
         for i = 1:nt-1
             for r = 1:nu
-                up(r) = real(sum(sum(p(:,:,r) .* q(:,:,i,m)))) * (LX*LZ);
+                up(r) = real(sum(sum(P(:,:,r) .* q(:,:,i,m)))) * (LX*LZ);
             end
             for r = 1:nu
-                Q(:,:,r) = Q(:,:,r) + W(r,:)*up .* conj(q(:,:,i,m)) * dt;
+                dJdP(:,:,r) = dJdP(:,:,r) + W(r,:)*up .* conj(q(:,:,i,m)) * dt;
             end
         end
     end
-    alpha(iter) = - dJdKn(iter) / ...
-                          real(sum(sum(sum(conj(Q) .* dJdK(:,:,:,iter)))));
+    alpha(iter) = - sum(sum(sum(conj(dJdP) .* dJdK(:,:,:,iter)))) / ...
+                                        sum(sum(sum(conj(dJdP) .* dJdP)));
+    alpha(iter) = real(alpha(iter)); % numerical error: imag(alpha) ~ 1e-18
     
     % - update
-    K(:,:,:,iter+1) = K(:,:,:,iter) + alpha(iter) * p;
+    K(:,:,:,iter+1) = K(:,:,:,iter) + alpha(iter) * P;
     
     
     % visualize status
