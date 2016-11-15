@@ -19,4 +19,4 @@ Simple example of state-space formulation for the KS equation via the matrices A
 Example of optimal control via Riccati equation (LQR) as well as adjoint-based optimisation.
 
 ## References
-Johan Sundin, Controlling the laminar-to-turbulent transition in a fluid flow (2015). Bachelor Thesis, KTH. http://urn.kb.se/resolve?urn=urn:nbn:se:kth:diva-166855 (for 2D KS equation)
+Johan Sundin, Controlling the laminar-to-turbulent transition in a fluid flow (2015). Bachelor Thesis, KTH. http://urn.kb.se/resolve?urn=urn:nbn:se:kth:diva-166855 (2D KS equation)
