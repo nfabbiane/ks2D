@@ -223,7 +223,7 @@ for iter = 1:maxiter
     % conjugate gradient
     
     % - direction
-    dJdKn(iter) = sum(sum(sum(dJdK(:,:,:,iter).*conj(dJdK(:,:,:,iter)))));
+    dJdKn(iter) = sum(sum(sum(conj(dJdK(:,:,:,iter)).*dJdK(:,:,:,iter))));
     if iter > 1
         beta(iter) = dJdKn(iter) / dJdKn(iter-1); % Fletcher?Reeves
     end
