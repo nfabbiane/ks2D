@@ -26,7 +26,7 @@ tend = 500;         % final time
 dt   = 1.0;         % time-step
 
 % control parameters
-rho        = 1e3;   % control penalty
+rho        = 1e4;   % control penalty
 optmaxiter = 40;    % max number of iterations
 optepsilon = 1e-5;  % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps
 lnsmaxiter = 5;     % max number of iterations (line search)
@@ -46,7 +46,7 @@ lnsepsilon = 1e-4;  % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps (line search)
 % disturbance d (Gaussian shape at x_d, z_d with sigma_d variance)
 nd = 3; 
 posd = zeros(nd,2); posd(:,1) = 100;
-                    posd(:,2) = -LZ/2 + LZ/(2*nd):LZ/(nd):LZ/2 - LZ/(2*nd);
+                    posd(:,2) = -LZ/2:LZ/nd:LZ/2 - LZ/nd;
 sigd = zeros(nd,2); sigd(:,1) = 4;
                     sigd(:,2) = 4;
 
@@ -56,7 +56,7 @@ sigd = zeros(nd,2); sigd(:,1) = 4;
 % actuator u (Gaussian shape at x_u, z_u with sigma_u variance)
 nu = 3; 
 posu = zeros(nu,2); posu(:,1) = 200;
-                    posu(:,2) = -LZ/2 + LZ/(2*nu):LZ/(nu):LZ/2 - LZ/(2*nu);
+                    posu(:,2) = -LZ/2:LZ/nu:LZ/2 - LZ/nu;
 sigu = zeros(nu,2); sigu(:,1) = 4;
                     sigu(:,2) = 4;
 
@@ -73,7 +73,7 @@ W = eye(nu) * rho;
 % measurement y (Gaussian shape at x_y, z_y with sigma_y variance)
 ny = nu; 
 posy = zeros(ny,2); posy(:,1) = 100;
-                    posy(:,2) = -LZ/2 + LZ/(2*ny):LZ/(ny):LZ/2 - LZ/(2*ny);
+                    posy(:,2) = -LZ/2:LZ/ny:LZ/2 - LZ/ny;
 sigy = zeros(ny,2); sigy(:,1) = 4;
                     sigy(:,2) = 4;
 
@@ -83,7 +83,7 @@ sigy = zeros(ny,2); sigy(:,1) = 4;
 % output z (Gaussian shape at x_z with sigma_z variance)
 nz = nu; 
 posz = zeros(nz,2); posz(:,1) = 300;
-                    posz(:,2) = -LZ/2 + LZ/(2*nz):LZ/(nz):LZ/2 - LZ/(2*nz);
+                    posz(:,2) = -LZ/2:LZ/nz:LZ/2 - LZ/nz;
 sigz = zeros(nz,2); sigz(:,1) = 4;
                     sigz(:,2) = 4;
 
@@ -363,12 +363,12 @@ fprintf(' END.\n')
 %% Compare
 figure(1); clf
 for m = 1:nu
-    subplot(nu,2,1+2*(m-1)); surf(xx,zz,q2v(KRic(m,:).',NX,NZ)/(LX*LZ),'EdgeColor','none');
+    subplot(nu,2,1+2*(m-1)); surf(xx,zz,q2v(KRic(m,:)',NX,NZ)/(LX*LZ),'EdgeColor','none');
                     colorbar('EO'); colormap(redblue)
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
                     axis image; view(2); shading interp
                     xlabel('x'), ylabel('z'); title(sprintf('K_%d Riccati-based',m))
-    subplot(nu,2,2+2*(m-1)); surf(xx,zz,ifft2(K(:,:,m,iter)*(NX*NZ)),'EdgeColor','none');
+    subplot(nu,2,2+2*(m-1)); surf(xx,zz,ifft2(conj(K(:,:,m,iter))*(NX*NZ)),'EdgeColor','none');
                     colorbar('EO'); colormap(redblue)
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
                     axis image; view(2); shading interp
