@@ -26,9 +26,11 @@ tend = 500;         % final time
 dt   = 1.0;         % time-step
 
 % control parameters
-rho     = 1e4;      % control penalty
-maxiter = 40;        % max number of iterations
-epsilon = 1e-5;     % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps
+rho        = 1e4;      % control penalty
+optmaxiter = 40;        % max number of iterations
+optepsilon = 1e-5;     % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps
+lnsmaxiter = 10;       % max number of iterations (line search)
+lnsepsilon = 1e-12;    % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps (line search)
 
 
 
@@ -109,33 +111,35 @@ t = 0:dt:tend; nt = length(t);
 nq = size(A,1);
 
 % initialize control gains
-K = zeros(NX,NZ,nu,maxiter);
+K = zeros(NX,NZ,nu,optmaxiter);
 % for r = 1:nu
 %     K(:,:,r,1) = fft2(q2v(KRic(r,:).',NX,NZ)/(LX*LZ))/(NX*NZ);
 % end
 
 
 % initialize gradient
-dJdK  = zeros(NX,NZ,nu,maxiter);
-dJdKn = zeros(1,maxiter);
+dJdK  = zeros(NX,NZ,nu,optmaxiter);
+dJdKn = zeros(1,optmaxiter);
 
 % initialize cost function
-J  = zeros(1,maxiter);
-dJ = zeros(1,maxiter);
+J  = zeros(1,optmaxiter);
+dJ = zeros(1,optmaxiter);
 
 % initialize conjuagate gradient coefficients
 P     = zeros(NX,NZ,nu);
 dJdP  = zeros(NX,NZ,nu);
 up    = zeros(nu,1);
-alpha = zeros(1,maxiter);
-beta  = zeros(1,maxiter);
+alpha = zeros(1,optmaxiter);
+beta  = zeros(1,optmaxiter);
+gamma = zeros(1,optmaxiter);
+
 
 % optimisation loop
 fprintf('\nKS adjoint-based optimal control.\n')
 
-for iter = 1:maxiter
+for iter = 1:optmaxiter
     
-    fprintf('\niter %2.0d: ',iter); tic
+    fprintf('iter %2.0d: ',iter); tic
     
     % compute gradient and cost function
     q = zeros(NX,NZ,nt,nd);
@@ -147,38 +151,99 @@ for iter = 1:maxiter
 
     f = zeros(NX,NZ,1);
     
+
+    % direct loop (and line-search method)
+    Jlns     = zeros(3,1); if iter > 1; Jlns(1) = J(iter-1); end
+    gammalns = zeros(3,1); gammalns(2) = 1;
+
+    for lnsiter = 1:lnsmaxiter
+            
+        % update K
+        if iter > 1
+            K(:,:,:,iter) = K(:,:,:,iter-1) + alpha(iter)*gammalns(2) * P;
+        end
+    
+        % loop on disturbances
+        for m = 1:nd
+
+            % direct loop
+            q(:,:,1,m) = Bdfou(:,:,m);
+
+            for i = 1:nt-1
+
+                % output(s)
+                for r = 1:nz
+                    z(r,i,m) = real(sum(sum(Czfou(:,:,r) .* q(:,:,i,m)))) * (LX*LZ);
+                end
+
+                % control signal
+                for r = 1:nu
+                    u(r,i,m) = real(sum(sum(K(:,:,r,iter) .* q(:,:,i,m)))) * (LX*LZ);
+                end
+
+                % forcing
+                f(:,:) = 0;
+                for r = 1:nu
+                    f(:,:) = f(:,:) + Bufou(:,:,r) * u(r,i,m);
+                end
+
+                % KS time-step
+                q(:,:,i+1,m) = ks_timestep(q(:,:,i,m),f,dt,L,lambda);
+
+            end
+
+            for r = 1:nz
+                z(r,i+1) = real(sum(sum(Czfou(:,:,r) .* q(:,:,i+1)))) * (LX*LZ);
+            end
+
+            % cost function
+            Jlns(2) = Jlns(2) + 1/2 * trapz(t,diag(z(:,:,m)' * z(:,:,m) ...
+                                                   + u(:,:,m)' * W * u(:,:,m)));
+
+        end
+
+        % - variation
+        if lnsiter > 1
+            dJlns = abs(Jlns(2)-Jlnsref)/abs(Jlnsref);
+        end
+
+        % stop condition (line search)
+        if iter == 1
+            gamma(iter) = gammalns(2); break
+        elseif (lnsiter > 1) & (dJlns < optepsilon);
+            gamma(iter) = gammalns(2); break
+        end
+
+        % update alpha (Brent's method)
+        if lnsiter == 1
+            Jlns(3)     = Jlns(2); Jlnsref = Jlns(3);
+            gammalns(3) = gammalns(2);
+
+            dJdgamma = alpha(iter) * sum(sum(sum(conj(dJdP) .* dJdK(:,:,:,iter))));
+            gammalns(2) = - dJdgamma * gammalns(3) / ...
+                               (Jlns(3) - dJdgamma*gammalns(3) - Jlns(1));
+
+            [gammalns,ii] = sort(gammalns); Jlns = Jlns(ii);
+        else
+            gammanew = gammalns(2) ...
+              - 1/2 * ((gammalns(2) - gammalns(1))^2 * (Jlns(2) - Jlns(3)) - ...
+                       (gammalns(2) - gammalns(3))^2 * (Jlns(2) - Jlns(1))) / ...
+                      ((gammalns(2) - gammalns(1))   * (Jlns(2) - Jlns(3)) - ...
+                       (gammalns(2) - gammalns(3))   * (Jlns(2) - Jlns(1)));
+
+            if gammanew > gamma(2)
+                gammalns(1) = gammalns(2); Jlns(1) = Jlns(2); Jlnsref = Jlns(1);
+            else
+                gammalns(3) = gammalns(2); Jlns(3) = Jlns(2); Jlnsref = Jlns(3);
+            end
+            gammalns(2) = gammanew; Jlns(2) = 0;
+        end
+        
+    end
+    
+    
     % loop on disturbances
     for m = 1:nd
-
-        % direct loop
-        q(:,:,1,m) = Bdfou(:,:,m);
-        
-        for i = 1:nt-1
-            
-            % output(s)
-            for r = 1:nz
-                z(r,i,m) = real(sum(sum(Czfou(:,:,r) .* q(:,:,i,m)))) * (LX*LZ);
-            end
-            
-            % control signal
-            for r = 1:nu
-                u(r,i,m) = real(sum(sum(K(:,:,r,iter) .* q(:,:,i,m)))) * (LX*LZ);
-            end
-            
-            % update cost function
-            J(iter) = J(iter) + 1/2 * (z(:,i,m)' * z(:,i,m) ...
-                                          + u(:,i,m)' * W * u(:,i,m)) * dt;
-            
-            % forcing
-            f(:,:) = 0;
-            for r = 1:nu
-                f(:,:) = f(:,:) + Bufou(:,:,r) * u(r,i,m);
-            end
-
-            % KS time-step
-            q(:,:,i+1,m) = ks_timestep(q(:,:,i,m),f,dt,L,lambda);
-            
-        end
 
         % adjoint loop
         l(:,:,end,m) = q(:,:,end,m);
@@ -212,9 +277,12 @@ for iter = 1:maxiter
         end
     
     end
-    
-    
-    % cost function variation
+
+        
+    % cost function
+    J(iter) = Jlns(2);
+
+    % - variation
     if iter > 1
         dJ(iter) = abs(J(iter)-J(iter-1))/abs(J(iter-1));
     end
@@ -241,41 +309,42 @@ for iter = 1:maxiter
             end
         end
     end
-    alpha(iter) = - sum(sum(sum(conj(dJdP) .* dJdK(:,:,:,iter)))) / ...
+    alpha(iter+1) = - sum(sum(sum(conj(dJdP) .* dJdK(:,:,:,iter)))) / ...
                                         sum(sum(sum(conj(dJdP) .* dJdP)));
-    alpha(iter) = real(alpha(iter)); % numerical error: imag(alpha) ~ 1e-18
-    
-    % - update
-    K(:,:,:,iter+1) = K(:,:,:,iter) + alpha(iter) * P;
+    alpha(iter+1) = real(alpha(iter+1)); % numerical error: imag(alpha) ~ 1e-18
     
     
     % visualize status
     runtime = toc;
-    fprintf('J = %8.2e, |dJdK|_2 = %8.2e (runtime %.2fs)',...
-                 J(iter),       dJdKn(iter),    runtime)
+    fprintf('J = %8.2e (%2.0d), |dJdK|_2 = %8.2e (runtime %.2fs)\n',...
+                 J(iter),lnsiter,          dJdKn(iter),   runtime)
 
     figure(100); clf; iu = floor(nu/2)+1;
-    subplot(6,1,1:2); surf(xx,zz,ifft2(K(:,:,iu,iter))*(NX*NZ),'EdgeColor','none');
+    subplot(7,1,1:2); surf(xx,zz,ifft2(K(:,:,iu,iter))*(NX*NZ),'EdgeColor','none');
                     hc = colorbar('EO'); colormap(redblue)
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
                     axis image; view(2); shading interp
                     xlabel('x'), ylabel('z'); ylabel(hc,sprintf('K_%d',iu))
-    subplot(6,1,3:4); surf(xx,zz,ifft2(dJdK(:,:,iu,iter))*(NX*NZ),'EdgeColor','none');
+    subplot(7,1,3:4); surf(xx,zz,ifft2(dJdK(:,:,iu,iter))*(NX*NZ),'EdgeColor','none');
                     hc = colorbar('EO'); colormap(redblue)
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
                     axis image; view(2); shading interp
                     xlabel('x'), ylabel('z'); ylabel(hc,sprintf('dJ/dK_%d',iu))
-    subplot(6,1,5); semilogy(1:maxiter,dJ,'s-',[1 maxiter],[1 1]*epsilon,'-r');
-                    ax = axis; axis([1 maxiter ax(3:4)]); grid on
+    subplot(7,1,5); semilogy(1:optmaxiter,dJ,'s-',[1 optmaxiter],[1 1]*optepsilon,'-r');
+                    ax = axis; axis([1 optmaxiter ax(3:4)]); grid on
                     xlabel('iter'), ylabel('\deltaJ');
-    subplot(6,1,6); semilogy(1:maxiter,dJdKn,'s-');
-                    ax = axis; axis([1 maxiter ax(3:4)]); grid on
+    subplot(7,1,6); semilogy(1:optmaxiter,dJdKn,'s-');
+                    ax = axis; axis([1 optmaxiter ax(3:4)]); grid on
                     xlabel('iter'), ylabel('||\partialJ/\partialK||_2');
+    subplot(7,1,7); semilogy(1:optmaxiter,abs(alpha.*gamma),'s-',...
+                             1:optmaxiter,abs(alpha       ),'-');
+                    ax = axis; axis([1 optmaxiter ax(3:4)]); grid on
+                    xlabel('t'), ylabel('|\alpha|');
 	drawnow
     
     
     % stop condition
-    if (iter > 1) & (dJ(iter) < epsilon); break; end
+    if (iter > 1) & (dJ(iter) < optepsilon); break; end
     
 end
 
