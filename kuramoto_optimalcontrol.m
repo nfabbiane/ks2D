@@ -26,11 +26,11 @@ tend = 500;         % final time
 dt   = 1.0;         % time-step
 
 % control parameters
-rho        = 1e4;      % control penalty
-optmaxiter = 40;        % max number of iterations
-optepsilon = 1e-5;     % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps
-lnsmaxiter = 10;       % max number of iterations (line search)
-lnsepsilon = 1e-12;    % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps (line search)
+rho        = 1e3;   % control penalty
+optmaxiter = 40;    % max number of iterations
+optepsilon = 1e-5;  % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps
+lnsmaxiter = 5;     % max number of iterations (line search)
+lnsepsilon = 1e-4;  % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps (line search)
 
 
 
@@ -44,8 +44,8 @@ lnsepsilon = 1e-12;    % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps (line sear
 %% Inputs matrix B
 
 % disturbance d (Gaussian shape at x_d, z_d with sigma_d variance)
-nd = 12; 
-posd = zeros(nd,2); posd(:,1) = 0;
+nd = 3; 
+posd = zeros(nd,2); posd(:,1) = 100;
                     posd(:,2) = -LZ/2 + LZ/(2*nd):LZ/(nd):LZ/2 - LZ/(2*nd);
 sigd = zeros(nd,2); sigd(:,1) = 4;
                     sigd(:,2) = 4;
@@ -193,33 +193,40 @@ for iter = 1:optmaxiter
             end
 
             for r = 1:nz
-                z(r,i+1) = real(sum(sum(Czfou(:,:,r) .* q(:,:,i+1)))) * (LX*LZ);
+                z(r,i+1,m) = real(sum(sum(Czfou(:,:,r) .* q(:,:,i+1,m)))) * (LX*LZ);
             end
 
-            % cost function
+        end
+        
+        
+        % cost function
+        Jlns(2) = 0;
+        for m = 1:nd
             Jlns(2) = Jlns(2) + 1/2 * trapz(t,diag(z(:,:,m)' * z(:,:,m) ...
                                                    + u(:,:,m)' * W * u(:,:,m)));
-
         end
 
         % - variation
         if lnsiter > 1
             dJlns = abs(Jlns(2)-Jlnsref)/abs(Jlnsref);
         end
+        
 
         % stop condition (line search)
+        gamma(iter) = gammalns(2);
         if iter == 1
-            gamma(iter) = gammalns(2); break
-        elseif (lnsiter > 1) & (dJlns < optepsilon);
-            gamma(iter) = gammalns(2); break
+            break
+        elseif (lnsiter > 1) & (dJlns < lnsepsilon)
+            break
         end
 
+        
         % update alpha (Brent's method)
         if lnsiter == 1
             Jlns(3)     = Jlns(2); Jlnsref = Jlns(3);
             gammalns(3) = gammalns(2);
 
-            dJdgamma = alpha(iter) * sum(sum(sum(conj(dJdP) .* dJdK(:,:,:,iter))));
+            dJdgamma = alpha(iter) * real(sum(sum(sum(P .* dJdK(:,:,:,iter-1)))));
             gammalns(2) = - dJdgamma * gammalns(3) / ...
                                (Jlns(3) - dJdgamma*gammalns(3) - Jlns(1));
 
@@ -236,7 +243,7 @@ for iter = 1:optmaxiter
             else
                 gammalns(3) = gammalns(2); Jlns(3) = Jlns(2); Jlnsref = Jlns(3);
             end
-            gammalns(2) = gammanew; Jlns(2) = 0;
+            gammalns(2) = gammanew;
         end
         
     end
