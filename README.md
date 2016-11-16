@@ -7,7 +7,7 @@ Nicolò Fabbiane, November 2016
 ## Contents
 
 ### lib/
-This folders contains all the basic functions to use the 2D KS.
+It contains all the basic functions to use the 2D KS.
 
 ### kuramoto_dns.m
 Simple example of direct numerical simulation (DNS) of the modified KS equation. To advance in time the function `ks_timestep` is used.
