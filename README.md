@@ -6,7 +6,7 @@ Nicolò Fabbiane, November 2016
 
 ## Contents
 
-### lib
+### lib/
 This folders contains all the basic functions to use the 2D KS.
 
 ### kuramoto_dns.m
