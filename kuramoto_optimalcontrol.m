@@ -327,12 +327,12 @@ for iter = 1:optmaxiter
                  J(iter),lnsiter,          dJdKn(iter),   runtime)
 
     figure(100); clf; iu = floor(nu/2)+1;
-    subplot(7,1,1:2); surf(xx,zz,ifft2(K(:,:,iu,iter))*(NX*NZ),'EdgeColor','none');
+    subplot(7,1,1:2); surf(xx,zz,ifft2(conj(K(:,:,iu,iter)))*(NX*NZ),'EdgeColor','none');
                     hc = colorbar('EO'); colormap(redblue)
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
                     axis image; view(2); shading interp
                     xlabel('x'), ylabel('z'); ylabel(hc,sprintf('K_%d',iu))
-    subplot(7,1,3:4); surf(xx,zz,ifft2(dJdK(:,:,iu,iter))*(NX*NZ),'EdgeColor','none');
+    subplot(7,1,3:4); surf(xx,zz,ifft2(conj(dJdK(:,:,iu,iter)))*(NX*NZ),'EdgeColor','none');
                     hc = colorbar('EO'); colormap(redblue)
                     cax = caxis; caxis([-1 1]*max(abs(cax)));
                     axis image; view(2); shading interp
