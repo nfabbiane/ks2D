@@ -44,7 +44,7 @@ lnsepsilon = 1e-4;  % stop tollerance: |(J_i - J_i-1)/J_i-1| < eps (line search)
 %% Inputs matrix B
 
 % disturbance d (Gaussian shape at x_d, z_d with sigma_d variance)
-nd = 6; 
+nd = 12; 
 posd = zeros(nd,2); posd(:,1) = 100;
                     posd(:,2) = -LZ/2:LZ/nd:LZ/2 - LZ/nd;
 sigd = zeros(nd,2); sigd(:,1) = 4;
@@ -370,7 +370,7 @@ for m = 1:nu
                     xlabel('x'), ylabel('z'); title(sprintf('K_%d Riccati-based',m))
     subplot(nu,2,2+2*(m-1)); surf(xx,zz,ifft2(conj(K(:,:,m,iter))*(NX*NZ)),'EdgeColor','none');
                     colorbar('EO'); colormap(redblue)
-                    cax = caxis; caxis([-1 1]*max(abs(cax)));
+                    caxis([-1 1]*max(abs(cax)));
                     axis image; view(2); shading interp
                     xlabel('x'), ylabel('z'); title(sprintf('K_%d adjoint-based',m))
 end
