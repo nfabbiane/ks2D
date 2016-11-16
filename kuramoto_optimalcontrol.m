@@ -346,7 +346,7 @@ for iter = 1:optmaxiter
     subplot(7,1,7); semilogy(1:optmaxiter,abs(alpha.*gamma),'s-',...
                              1:optmaxiter,abs(alpha       ),'-');
                     ax = axis; axis([1 optmaxiter ax(3:4)]); grid on
-                    xlabel('t'), ylabel('|\alpha|');
+                    xlabel('iter'), ylabel('|\alpha|');
 	drawnow
     
     
