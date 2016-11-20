@@ -1,6 +1,6 @@
 # ks2D
 
-A two-dimensional (2D) extension of the Kumamoto-Sivashisky (KS) equation.
+A two-dimensional (2D) extension of the Kuramoto-Sivashinsky (KS) equation.
 
 Nicolò Fabbiane, November 2016
 
