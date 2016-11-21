@@ -19,7 +19,7 @@ for l = 1:nin
       
     Bphy(:,:,l) = exp(arg)/sqrt(prod(sigma(l,:)));
                    
-    dBphy(:,:,l,1)  = -1/sigma(l,2) * (-2 * mod(xx-pos(l,1),LZ)/sigma(l,1)) .* arg .* Bphy(:,:,l);
+    dBphy(:,:,l,1)  = -1/sigma(l,2) * (-2 * mod(xx-pos(l,1),LX)/sigma(l,1)) .* arg .* Bphy(:,:,l);
     dBphy(:,:,l,2)  = -1/sigma(l,2) * (-2 * mod(zz-pos(l,2),LZ)/sigma(l,2)) .* arg .* Bphy(:,:,l);
                                    
     Bfou(:,:,l)    = fft2( Bphy(:,:,l)  ) / (nx*nz);
