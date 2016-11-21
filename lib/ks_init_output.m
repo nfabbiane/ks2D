@@ -14,13 +14,14 @@ dCphy = zeros(nx,nz,nout,2);
 dCfou = zeros(nx,nz,nout,2);
 
 for l = 1:nout
-    arg = - (mod(xx-pos(l,1),LX).^2)/sigma(l,1).^2 ...
-          - (mod(zz-pos(l,2),LZ).^2)/sigma(l,2).^2 ;
+    argx = (mod(xx-pos(l,1)+LX/2,LX)-LX/2)/sigma(l,1);
+    argz = (mod(zz-pos(l,2)+LZ/2,LZ)-LZ/2)/sigma(l,2);
+    arg2 = - argx.^2 - argz.^2;
       
-    Cphy(:,:,l) = exp(arg)/sqrt(prod(sigma(l,:)));
+    Cphy(:,:,l) = exp(arg2)/sqrt(prod(sigma(l,:)));
                    
-    dCphy(:,:,l,1)  = -1/sigma(l,1) * (-2 * mod(xx-pos(l,1),LX)/sigma(l,1)) .* arg .* Cphy(:,:,l);
-    dCphy(:,:,l,2)  = -1/sigma(l,2) * (-2 * mod(zz-pos(l,2),LZ)/sigma(l,2)) .* arg .* Cphy(:,:,l);
+    dCphy(:,:,l,1)  = -1/sigma(l,1) * (-2 * argx) .* arg2 .* Cphy(:,:,l);
+    dCphy(:,:,l,2)  = -1/sigma(l,2) * (-2 * argz) .* arg2 .* Cphy(:,:,l);
                    
     Cfou(:,:,l)    = conj(fft2( Cphy(:,:,l)  )) / (nx*nz);
     dCfou(:,:,l,1) = conj(fft2(dCphy(:,:,l,1))) / (nx*nz);
