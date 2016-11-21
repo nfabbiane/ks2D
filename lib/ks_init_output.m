@@ -19,8 +19,12 @@ for l = 1:nout
       
     Cphy(:,:,l) = exp(arg)/sqrt(prod(sigma(l,:)));
                    
-    dCphy(:,:,l,1)  = -1/sigma(l,1) * (-2 * mod(xx-pos(l,1),LX)/sigma(l,1)) .* arg .* Cphy(:,:,l);
-    dCphy(:,:,l,2)  = -1/sigma(l,2) * (-2 * mod(zz-pos(l,2),LZ)/sigma(l,2)) .* arg .* Cphy(:,:,l);
+    dCphy(:,:,l,1)  = -1/sigma(l,1) ...
+                      * (-2 * (mod(xx-pos(l,1)     ,LX)     )/sigma(l,1)) ...
+                     .* arg .* Cphy(:,:,l);
+    dCphy(:,:,l,2)  = -1/sigma(l,2) ...
+                      * (-2 * (mod(zz-pos(l,2)+LZ/2,LZ)-LZ/2)/sigma(l,2)) ...
+                     .* arg .* Cphy(:,:,l);
                    
     Cfou(:,:,l)    = conj(fft2( Cphy(:,:,l)  )) / (nx*nz);
     dCfou(:,:,l,1) = conj(fft2(dCphy(:,:,l,1))) / (nx*nz);
