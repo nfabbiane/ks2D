@@ -52,7 +52,7 @@ posd = zeros(nd,2); posd(:,1) = 0;
 sigd = zeros(nd,2); sigd(:,1) = 4;
                     sigd(:,2) = 4;
 
-Bd = ks_init_input(posd,sigd,xx,zz);
+Bd = ks_init_input(posd,sigd,xx,zz,LX,LZ);
 
       
 % actuator u (Gaussian shape at x_u, z_u with sigma_u variance)
@@ -62,7 +62,7 @@ posu = zeros(nu,2); posu(:,1) = 200;
 sigu = zeros(nu,2); sigu(:,1) = 4;
                     sigu(:,2) = 4;
 
-Bu = ks_init_input(posu,sigu,xx,zz);
+Bu = ks_init_input(posu,sigu,xx,zz,LX,LZ);
 
 
 
