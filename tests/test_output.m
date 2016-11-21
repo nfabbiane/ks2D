@@ -33,7 +33,7 @@ Lf = 150;           % fringe length (x)
 %% Test
 
 % generate field
-[q,f,v] = ks_init_input([0 0],[10 10],xx,zz);
+[q,f,v] = ks_init_input([0 0],[10 10],xx,zz,LX,LZ);
 
 % generate output matrix
 [C,Cfou,Cphy] = ks_init_output([0 0],[10 10],xx,zz,LX,LZ);
@@ -45,3 +45,27 @@ dz = zz(1,2) - zz(1,1);
 y    = C*q
 yfou = sum(sum(Cfou .* f)) * (LX*LZ)
 yphy = sum(sum(Cphy .* v)) * (dx*dz)
+
+
+
+
+%% Test shift
+
+% generate field
+[qsh,fsh,vsh] = ks_init_input([0 -LZ/2],[10 10],xx,zz,LX,LZ);
+
+% generate output matrix
+[Csh,Cfoush,Cphysh] = ks_init_output([0 -LZ/2],[10 10],xx,zz,LX,LZ);
+
+% compute output
+dx = xx(2,1) - xx(1,1);
+dz = zz(1,2) - zz(1,1);
+
+ysh    = Csh*qsh
+yfoush = sum(sum(Cfoush .* fsh)) * (LX*LZ)
+yphysh = sum(sum(Cphysh .* vsh)) * (dx*dz)
+
+% diff
+dy    = y    - ysh
+dyfou = yfou - yfoush
+dyphy = yphy - yphysh

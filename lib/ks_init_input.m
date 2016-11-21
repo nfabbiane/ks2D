@@ -14,13 +14,14 @@ dBphy = zeros(nx,nz,nin,2);
 dBfou = zeros(nx,nz,nin,2);
 
 for l = 1:nin
-    arg = - (mod(xx-pos(l,1),LX).^2)/sigma(l,1).^2 ...
-          - (mod(zz-pos(l,2),LZ).^2)/sigma(l,2).^2 ;
+    argx = (mod(xx-pos(l,1)+LX/2,LX)-LX/2)/sigma(l,1);
+    argz = (mod(zz-pos(l,2)+LZ/2,LZ)-LZ/2)/sigma(l,2);
+    arg2 = - argx.^2 - argz.^2;
       
-    Bphy(:,:,l) = exp(arg)/sqrt(prod(sigma(l,:)));
+    Bphy(:,:,l) = exp(arg2)/sqrt(prod(sigma(l,:)));
                    
-    dBphy(:,:,l,1)  = -1/sigma(l,2) * (-2 * mod(xx-pos(l,1),LX)/sigma(l,1)) .* arg .* Bphy(:,:,l);
-    dBphy(:,:,l,2)  = -1/sigma(l,2) * (-2 * mod(zz-pos(l,2),LZ)/sigma(l,2)) .* arg .* Bphy(:,:,l);
+    dBphy(:,:,l,1)  = -1/sigma(l,1) * (-2 * argx) .* arg2 .* Bphy(:,:,l);
+    dBphy(:,:,l,2)  = -1/sigma(l,2) * (-2 * argz) .* arg2 .* Bphy(:,:,l);
                                    
     Bfou(:,:,l)    = fft2( Bphy(:,:,l)  ) / (nx*nz);
     dBfou(:,:,l,1) = fft2(dBphy(:,:,l,1)) / (nx*nz);
